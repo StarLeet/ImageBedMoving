@@ -1,75 +1,32 @@
 # ImageBedMoving
 
-A java Program~(所以你需要将jdk配置到本地环境变量中...才能继续使用)
+# ImageBedMoving做了什么？
 
-### 使用之前：**要求使用者对java正则表达式有基础的了解**。
+1. ImageBedMoving会先读取`ImageMoving.properties`内的配置信息
+2. 到指定的目录(NotesDir)下遍历各个文件中的内容，将符合配置要求的图片移动到指定目录下的`vx_images`
+3. 将原文件进行备份，存储到`notes_bak`目录下，如遇特殊情况，随时可以还原回来。
+4. 对原文件进行路径更新(因为图片的路径发生改变，文件内的引用也应该进行同步)。
 
-# 教程
+**请不要急着关掉cmd窗口，上面写着非常详细的操作信息，你可以随时掌控ImageBedMoving的所有操作。**
 
-下载`FileOperation_Bak.java`到本地，用记事本或者sublime编辑
+# 使用教程
 
-1. 找到`main`函数，将`notesDir`改为自己笔记所在目录
-
-```java
-public static void main(String[] args) {
-           /**************!第一步修改笔记所在目录*************/
-        String notesDir = "Z:\\MyNotes\\Java\\JVM";  // 笔记所在目录
-                  // 下面这几个都不需要更改 
-        String imageBedPath = notesDir + "\\vx_images";  // 笔记同目录建立图床
-        String notesBackupPath = notesDir + "\\notes_bak";
+1. 将本仓库clone到本地
+2. 用记事本编辑`ImageMoving.properties`
 
 ```
-
-2. 找到`collectImageNames`函数，将`regStr`改为自己所需的正则表达式(只要能够匹配到笔记引用的图床路径即可)
-
-```java
-public static Map<String,ArrayList<String[]>> collectImageNames(Map<String,StringBuilder> notesInfo){
-        
-           /*************!第二步修改匹配图片全路径名的正则式*************/
-           
-        /*  Java正则中普通的\ 为 \\\\
-            Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3}) 表示匹配 Z:\Mynotes\photoes\xxxx.jpeg或者png或者gif
-            Z:/MyNotes/photoes/\\w*\\.(jpeg|[a-zA-Z]{3}) 表示匹配 Z:/Mynotes/photoes/xxxx.jpeg或者png或者gif
-        */
-        String regStr = "Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3})";
-      
-}
+# 笔记所在目录
+NotesDir=E:\\git_exercise\\imageBedMoving\\example
+# 笔记中存储图片的图床路径
+ImagesBedPathReg=Z:\\\\MyNotes\\\\github图床\\\\cloud_img\\\\data\\\\
+# 正则匹配图片名字(下式不支持中文命名！)
+# 如匹配失败，才建议自行修改
+ImageNameReg=\\w*-?\\w*\\.(jpeg|[a-zA-Z]{3})
 ```
 
-## 匹配案例
-![](vx_images/406604215220348.png)
+3. 双击`run.bat`
 
-
-3. 找到`updateImagePath`函数，将`Z:\\\\MyNotes\\\\photoes\\\\`替换成自己笔记中的路径
-
-```java
-public static void updateImagePath(Map<String,StringBuilder> notesInfo, String noteName){
-        StringBuilder sb = notesInfo.get(noteName);
-        if (sb == null) return;
-        /* 第二处若为 Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3})
-           则此处应为 Z:\\\\MyNotes\\\\photoes\\\\
-           第二处若为 Z:/MyNotes/photoes/\\w*\\.(jpeg|[a-zA-Z]{3})
-           则此处应为 Z:/MyNotes/photoes/
-        */
-        notesInfo.put(noteName,new StringBuilder(sb.toString().replaceAll(
-                "Z:\\\\MyNotes\\\\photoes\\\\", "vx_images/")));
-}
-```
-
-> 比如：
-> 原图床为`D:\abc\图床\a分区\`
-> 则你应将`Z:\\\\MyNotes\\\\photoes\\\\`更改为`D:\\\\abc\\\\图床\\\\\a分区\\\\`
-> 
-> 效果为：`D:\abc\图床\a分区\图片.png`将被更改为`vx_images/图片.png`
-
-由此，所有工作都完毕。
-
-#### 注意：本程序是迁移图片，而不是复制，所有迁移的图片最终都将在笔记目录中的`vx_images`中
-
-#### 注意：本程序不会无端的改动原笔记，所以在文件操作之前，强制进行了备份。所有备份笔记在同目录`notes_bak`下
-
-#### 注意：本程序只对本目录下的笔记文件进行操作，不会考虑到子目录的情况，如需对子目录的文件进行操作，则应该将main函数的`notesDir`进行更新
-
+验收成果即可。如果提示失败，可以检查一下配置文件
 
 # 成果展示
 
@@ -83,19 +40,6 @@ public static void updateImagePath(Map<String,StringBuilder> notesInfo, String n
 ![](vx_images/176551414231785.png)
 
 
-## 编辑`FileOperation_Bak.java`
-![](vx_images/9471714247269.png)
-
-![](vx_images/24252814248452.png)
-
-![](vx_images/456852814243588.png)
-
-```bash
-javac FileOperation_Bak.java
-java FileOperation_Bak.class
-```
-
-不会的小伙伴可以百度一下java文件怎么编译~其实非常的简单。。。就上面两个指令，在`FileOperation_Bak.java`目录中打开cmd输入即可
 
 ## 运行结果
 ![](vx_images/123.gif)

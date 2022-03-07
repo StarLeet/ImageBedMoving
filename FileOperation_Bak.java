@@ -1,5 +1,3 @@
-package ImagesMoving;
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -14,13 +12,16 @@ import java.util.regex.Pattern;
  */
 
 public class FileOperation_Bak {
+    private static String notesDir;
+    private static String oldImagesBedPathReg;
+    private static String fullNameReg;
+    private static String imageBedPath;  // ±Ê¼ÇÍ¬Ä¿Â¼½¨Á¢Í¼´²
+    private static String notesBackupPath;
+
     public static void main(String[] args) {
-        //    *************!ç¬¬ä¸€æ­¥ä¿®æ”¹ç¬”è®°æ‰€åœ¨ç›®å½•*************
-        String notesDir = "Z:\\MyNotes\\Java\\JVM";  // ç¬”è®°æ‰€åœ¨ç›®å½•
-        String imageBedPath = notesDir + "\\vx_images";  // ç¬”è®°åŒç›®å½•å»ºç«‹å›¾åºŠ
-        String notesBackupPath = notesDir + "\\notes_bak";
+        loadProperties();
         File imageBed = new File(imageBedPath);
-        if (!imageBed.exists()){  // åˆ›å»ºå›¾åºŠç›®å½•
+        if (!imageBed.exists()){  // ´´½¨Í¼´²Ä¿Â¼
             while (!imageBed.mkdir()){
                 try {
                     Thread.sleep(1000);
@@ -30,7 +31,7 @@ public class FileOperation_Bak {
             }
         }
         File notesBackup = new File(notesBackupPath);
-        if (!notesBackup.exists()){  // åˆ›å»ºå›¾åºŠç›®å½•
+        if (!notesBackup.exists()){  // ´´½¨Í¼´²Ä¿Â¼
             while (!notesBackup.mkdir()){
                 try {
                     Thread.sleep(1000);
@@ -39,17 +40,17 @@ public class FileOperation_Bak {
                 }
             }
         }
-        File file = new File(notesDir); //éœ€è¦è·å–çš„æ–‡ä»¶çš„è·¯å¾„
-        String[] fileNameLists = file.list(); // è·å–æ‰€æœ‰çš„ç¬”è®°å
-        File[] filePathLists = file.listFiles(); // æ‰¹é‡åˆ›å»ºç¬”è®°å¯¹è±¡ï¼Œä»¥ä¾¿è¯»å–å†…å®¹
+        File file = new File(notesDir); //ĞèÒª»ñÈ¡µÄÎÄ¼şµÄÂ·¾¶
+        String[] fileNameLists = file.list(); // »ñÈ¡ËùÓĞµÄ±Ê¼ÇÃû
+        File[] filePathLists = file.listFiles(); // ÅúÁ¿´´½¨±Ê¼Ç¶ÔÏó£¬ÒÔ±ã¶ÁÈ¡ÄÚÈİ
         assert fileNameLists != null && filePathLists != null;
         Map<String,StringBuilder> notesInfo = getFilesData(fileNameLists,filePathLists);
         Map<String,ArrayList<String[]>> imageNames = collectImageNames(notesInfo);
 
-        int succeedNum = 0;  // è®°å½•å¤„ç†æˆåŠŸçš„å›¾ç‰‡
+        int succeedNum = 0;  // ¼ÇÂ¼´¦Àí³É¹¦µÄÍ¼Æ¬
         for (String fileName : imageNames.keySet()) {
             ArrayList<String[]> imageNameInfo = imageNames.get(fileName);
-            System.out.println(fileName + " ä¸­éœ€è¦å¤„ç†çš„å›¾ç‰‡æœ‰ï¼š" + imageNameInfo.size() + "å¼ ");
+            System.out.println(fileName + " ÖĞĞèÒª´¦ÀíµÄÍ¼Æ¬ÓĞ£º" + imageNameInfo.size() + "ÕÅ");
             for (String[] strings : imageNameInfo) {
                 if (moveFile(strings[0],imageBedPath + "\\" + strings[1])){
                     succeedNum++;
@@ -57,23 +58,44 @@ public class FileOperation_Bak {
             }
             System.out.println("============================================");
         }
-        System.out.println("æœ€ç»ˆå¤„ç†æˆåŠŸçš„å›¾ç‰‡ä¸º" + succeedNum + "å¼ ï¼");
+        System.out.println("×îÖÕ´¦Àí³É¹¦µÄÍ¼Æ¬Îª" + succeedNum + "ÕÅ£¡");
         backupNotes(notesInfo,notesBackupPath,notesDir);
+    }
+
+    private static void loadProperties(){
+        Properties properties = new Properties();
+        try (FileInputStream fileInputStream = new FileInputStream("ImageMoving.properties");
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileInputStream,StandardCharsets.UTF_8))){
+            properties.load(bufferedReader);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        notesDir = properties.get("NotesDir").toString();
+        oldImagesBedPathReg = properties.get("ImagesBedPathReg").toString();
+        String imageNameReg = properties.get("ImageNameReg").toString();
+        assert notesDir == null || oldImagesBedPathReg == null || imageNameReg == null;
+        fullNameReg = oldImagesBedPathReg + imageNameReg;
+        imageBedPath = notesDir + "\\vx_images";
+        notesBackupPath = notesDir + "\\notes_bak";
+        System.out.println("=============================================================");
+        System.out.println("¶ÁÈ¡µ½ÅäÖÃĞÅÏ¢:\n" + "NotesDir = " + notesDir
+                + "\nImagesBedPathReg = " + oldImagesBedPathReg + "\nImageNameReg = " + imageNameReg);
+        System.out.println("=============================================================");
     }
 
     /**
      *  @MethodName getFilesData
      *  @Description
      *  @Param [filePath]
-     *  @return Map<String ç¬”è®°å,StringBuilder ç¬”è®°å†…å®¹>
+     *  @return Map<String ±Ê¼ÇÃû,StringBuilder ±Ê¼ÇÄÚÈİ>
      */
     public static Map<String, StringBuilder> getFilesData(String[] fileNameLists,File[] filePathLists){
         Map<String, StringBuilder> notesInfo = new HashMap<>();
         for(int i = 0; i < filePathLists.length; i++){
             if(filePathLists[i].isFile()){
-                //è¯»å–æŒ‡å®šæ–‡ä»¶è·¯å¾„ä¸‹çš„æ–‡ä»¶å†…å®¹
+                //¶ÁÈ¡Ö¸¶¨ÎÄ¼şÂ·¾¶ÏÂµÄÎÄ¼şÄÚÈİ
                 StringBuilder fileData = readFile(filePathLists[i]);
-                //æŠŠæ–‡ä»¶åä½œä¸ºkey,æ–‡ä»¶å†…å®¹ä¸ºvalue å­˜å‚¨åœ¨mapä¸­
+                //°ÑÎÄ¼şÃû×÷Îªkey,ÎÄ¼şÄÚÈİÎªvalue ´æ´¢ÔÚmapÖĞ
                 notesInfo.put(fileNameLists[i], fileData);
             }
         }
@@ -82,20 +104,20 @@ public class FileOperation_Bak {
 
     /**
      *  @MethodName readFile
-     *  @Description  è¯»å–å•ä¸ªæ–‡ä»¶çš„å†…å®¹
+     *  @Description  ¶ÁÈ¡µ¥¸öÎÄ¼şµÄÄÚÈİ
      *  @Param [path]
-     *  @return String å°†è¯»å–åˆ°çš„å†…å®¹è¿”å›
+     *  @return String ½«¶ÁÈ¡µ½µÄÄÚÈİ·µ»Ø
      */
     public static StringBuilder readFile(File path){
-        //åˆ›å»ºä¸€ä¸ªè¾“å…¥æµå¯¹è±¡
+        //´´½¨Ò»¸öÊäÈëÁ÷¶ÔÏó
         StringBuilder sb = new StringBuilder();
-        // try-with-resource è¯­æ³•ç³–
+        // try-with-resource Óï·¨ÌÇ
         try (FileInputStream fileInputStream = new FileInputStream(path);
              BufferedReader  bufferedReader = new BufferedReader(new InputStreamReader(
                 fileInputStream, StandardCharsets.UTF_8)) ){
             String line;
             while((line = bufferedReader.readLine()) != null){
-                //æŠŠæ•°æ®è½¬æ¢ä¸ºå­—ç¬¦ä¸²
+                //°ÑÊı¾İ×ª»»Îª×Ö·û´®
                 sb.append(line).append("\n");
             }
         } catch (IOException e) {
@@ -106,24 +128,18 @@ public class FileOperation_Bak {
 
     /**
      *  @MethodName collectImageNames
-     *  @Description  æ”¶é›†å½“å‰ç›®å½•ä¸‹æ‰€æœ‰ç¬”è®°å†…çš„å›¾ç‰‡å¼•ç”¨è·¯å¾„
+     *  @Description  ÊÕ¼¯µ±Ç°Ä¿Â¼ÏÂËùÓĞ±Ê¼ÇÄÚµÄÍ¼Æ¬ÒıÓÃÂ·¾¶
      *  @Param [notesInfo]
      *  @return Map<String,ArrayList<String[]>>
-     *      å°†æ¯å¼ å›¾ç‰‡ä»¥[ç¬”è®°å,å›¾ç‰‡å…¨è·¯å¾„å…¨å|å›¾ç‰‡å]å½¢å¼ä¿å­˜åˆ°Mapä¸­
+     *      ½«Ã¿ÕÅÍ¼Æ¬ÒÔ[±Ê¼ÇÃû,Í¼Æ¬È«Â·¾¶È«Ãû|Í¼Æ¬Ãû]ĞÎÊ½±£´æµ½MapÖĞ
      */
     public static Map<String,ArrayList<String[]>> collectImageNames(Map<String,StringBuilder> notesInfo){
         Map<String,ArrayList<String[]>> imageNames = new HashMap<>();
-        // åˆå§‹åŒ–Map
+        // ³õÊ¼»¯Map
         for (String fileName : notesInfo.keySet()) {
             imageNames.put(fileName,new ArrayList<>());
         }
-        //   *************!ç¬¬äºŒæ­¥ä¿®æ”¹åŒ¹é…å›¾ç‰‡å…¨è·¯å¾„åçš„æ­£åˆ™å¼*************
-        /*  Javaæ­£åˆ™ä¸­æ™®é€šçš„\ ä¸º \\\\
-            Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3}) è¡¨ç¤ºåŒ¹é… Z:\Mynotes\photoes\xxxx.jpegæˆ–è€…pngæˆ–è€…gif
-            Z:/MyNotes/photoes/\\w*\\.(jpeg|[a-zA-Z]{3}) è¡¨ç¤ºåŒ¹é… Z:/Mynotes/photoes/xxxx.jpegæˆ–è€…pngæˆ–è€…gif
-        */
-        String regStr = "Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3})";
-        Pattern compile = Pattern.compile(regStr);
+        Pattern compile = Pattern.compile(fullNameReg);
         int imageNum = 0;
         for (String fileName : notesInfo.keySet()) {
             Matcher matcher = compile.matcher(notesInfo.get(fileName));
@@ -136,10 +152,10 @@ public class FileOperation_Bak {
             }
         }
         if (imageNum == 0){
-            System.out.println("æœªåŒ¹é…åˆ°å›¾ç‰‡åã€‚æé†’ï¼šæ˜¯å¦collectImageNames()ä¸­çš„æ­£åˆ™åŒ¹é…å¼æ²¡å†™å¯¹ï¼Ÿ");
+            System.out.println("Î´Æ¥Åäµ½Í¼Æ¬Ãû¡£ÌáĞÑ£ºÊÇ·ñcollectImageNames()ÖĞµÄÕıÔòÆ¥ÅäÊ½Ã»Ğ´¶Ô£¿");
             System.exit(-1);
         }else {
-            System.out.println("å·²åŒ¹é…åˆ°" + imageNum + "ä¸ªå›¾ç‰‡,æ­£åœ¨å¤„ç†ä¸­ï¼");
+            System.out.println("ÒÑÆ¥Åäµ½" + imageNum + "¸öÍ¼Æ¬,ÕıÔÚ´¦ÀíÖĞ£¡");
         }
         return imageNames;
     }
@@ -148,13 +164,13 @@ public class FileOperation_Bak {
         File oldFile = new File(oldPathName);
         File newFile = new File(newPathName);
         boolean result = oldFile.renameTo(newFile);
-        System.out.println(oldFile + " â€”â€”> " + newFile + " result: " + result);
+        System.out.println(oldFile + " ¡ª¡ª> " + newFile + " result: " + result);
         return result;
     }
 
     public static void backupNotes(Map<String,StringBuilder> notesInfo, String notesBackupPath, String notesDir) {
         System.out.println("==========XXXXXXX=========");
-        System.out.println("å·²å¤‡ä»½åŸç¬”è®°ï¼æ­£å°è¯•å°†åŸå›¾ç‰‡è·¯å¾„ï¼Œæ”¹ä¸ºvx_images/......");
+        System.out.println("ÒÑ±¸·İÔ­±Ê¼Ç£¡Õı³¢ÊÔ½«Ô­Í¼Æ¬Â·¾¶£¬¸ÄÎªvx_images/......");
         for (String noteName : notesInfo.keySet()) {
             File file = new File(notesBackupPath + "\\" + noteName);
             if (!file.exists()){
@@ -175,18 +191,13 @@ public class FileOperation_Bak {
                 e.printStackTrace();
             }
         }
-        System.out.println("è¿è¡Œç»“æŸï¼è¯·å¯¹ç¬”è®°å†…å®¹è¿›è¡Œéšæœºæ£€æŸ¥ï¼");
+        System.out.println("ÔËĞĞ½áÊø£¡Çë¶Ô±Ê¼ÇÄÚÈİ½øĞĞËæ»ú¼ì²é£¡");
     }
 
     public static void updateImagePath(Map<String,StringBuilder> notesInfo, String noteName){
         StringBuilder sb = notesInfo.get(noteName);
         if (sb == null) return;
-        /* ç¬¬äºŒå¤„è‹¥ä¸º Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3})
-           åˆ™æ­¤å¤„åº”ä¸º Z:\\\\MyNotes\\\\photoes\\\\
-           ç¬¬äºŒå¤„è‹¥ä¸º Z:/MyNotes/photoes/\\w*\\.(jpeg|[a-zA-Z]{3})
-           åˆ™æ­¤å¤„åº”ä¸º Z:/MyNotes/photoes/
-        */
         notesInfo.put(noteName,new StringBuilder(sb.toString().replaceAll(
-                "Z:\\\\MyNotes\\\\photoes\\\\", "vx_images/")));
+                oldImagesBedPathReg, "vx_images/")));
     }
 }
