@@ -12,7 +12,8 @@
 # 使用教程
 
 1. 将本仓库clone到本地
-2. 用记事本编辑`ImageMoving.properties`
+2. 解压`jre.zip`(Java运行环境)
+3. 用记事本编辑`ImageMoving.properties`
 
 ```
 # 笔记所在目录
@@ -24,7 +25,7 @@ ImagesBedPathReg=Z:\\\\MyNotes\\\\github图床\\\\cloud_img\\\\data\\\\
 ImageNameReg=\\w*-?\\w*\\.(jpeg|[a-zA-Z]{3})
 ```
 
-3. 双击`run.bat`
+4. 双击`run.bat`
 
 验收成果即可。如果提示失败，可以检查一下配置文件
 
