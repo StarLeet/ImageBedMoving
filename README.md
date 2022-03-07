@@ -13,7 +13,10 @@
 
 1. 将本仓库clone到本地
 2. 解压`jre.zip`(Java运行环境)
-3. 用记事本编辑`ImageMoving.properties`
+
+## ImageMoving
+
+1. 用记事本编辑`ImageMoving.properties`
 
 ```
 # 笔记所在目录
@@ -25,9 +28,19 @@ ImagesBedPathReg=Z:\\\\MyNotes\\\\github图床\\\\cloud_img\\\\data\\\\
 ImageNameReg=\\w*-?\\w*\\.(jpeg|[a-zA-Z]{3})
 ```
 
-4. 双击`run.bat`
+2. 双击`ImageMoving_Run.bat`
 
 验收成果即可。如果提示失败，可以检查一下配置文件
+
+## RegStringTest(如果你希望检测你的正则表达式)
+
+> 这是一个正则表达式测试工具，用来辅助用户编辑`ImageMoving.properties`。你可以先使用RegStringTest测试你自己的正则表达式，看一下是否符合预期的效果。确认无误后再将其写入`ImageMoving.properties`
+
+1. 用记事本编辑`RegStringTest.properties`
+2. 双击`RegStringTest_Run.bat`
+3. 光标会先停顿,你可以将记事本中准备好的案例复制到终端
+4. 回车后，输入exit再次回车
+5. 程序会自动进行匹配，通过打印结果，可以检测你的正则表达式是否有效
 
 # 成果展示
 
