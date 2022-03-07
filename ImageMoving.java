@@ -5,13 +5,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * @ClassName FileOperation_Bak
+ * @ClassName ImageMoving
  * @Description
  * @Author StarLee
  * @Date 2022/3/6
  */
 
-public class FileOperation_Bak {
+public class ImageMoving {
     private static String notesDir;
     private static String oldImagesBedPathReg;
     private static String fullNameReg;
@@ -89,7 +89,7 @@ public class FileOperation_Bak {
      *  @Param [filePath]
      *  @return Map<String 笔记名,StringBuilder 笔记内容>
      */
-    public static Map<String, StringBuilder> getFilesData(String[] fileNameLists,File[] filePathLists){
+    private static Map<String, StringBuilder> getFilesData(String[] fileNameLists,File[] filePathLists){
         Map<String, StringBuilder> notesInfo = new HashMap<>();
         for(int i = 0; i < filePathLists.length; i++){
             if(filePathLists[i].isFile()){
@@ -108,7 +108,7 @@ public class FileOperation_Bak {
      *  @Param [path]
      *  @return String 将读取到的内容返回
      */
-    public static StringBuilder readFile(File path){
+    private static StringBuilder readFile(File path){
         //创建一个输入流对象
         StringBuilder sb = new StringBuilder();
         // try-with-resource 语法糖
@@ -133,7 +133,7 @@ public class FileOperation_Bak {
      *  @return Map<String,ArrayList<String[]>>
      *      将每张图片以[笔记名,图片全路径全名|图片名]形式保存到Map中
      */
-    public static Map<String,ArrayList<String[]>> collectImageNames(Map<String,StringBuilder> notesInfo){
+    private static Map<String,ArrayList<String[]>> collectImageNames(Map<String,StringBuilder> notesInfo){
         Map<String,ArrayList<String[]>> imageNames = new HashMap<>();
         // 初始化Map
         for (String fileName : notesInfo.keySet()) {
@@ -152,7 +152,7 @@ public class FileOperation_Bak {
             }
         }
         if (imageNum == 0){
-            System.out.println("未匹配到图片名。提醒：是否collectImageNames()中的正则匹配式没写对？");
+            System.out.println("未匹配到图片名。提醒：请检查ImageMoving.properties配置文件");
             System.exit(-1);
         }else {
             System.out.println("已匹配到" + imageNum + "个图片,正在处理中！");
@@ -160,7 +160,7 @@ public class FileOperation_Bak {
         return imageNames;
     }
 
-    public static boolean moveFile(String oldPathName,String newPathName){
+    private static boolean moveFile(String oldPathName,String newPathName){
         File oldFile = new File(oldPathName);
         File newFile = new File(newPathName);
         boolean result = oldFile.renameTo(newFile);
@@ -168,7 +168,7 @@ public class FileOperation_Bak {
         return result;
     }
 
-    public static void backupNotes(Map<String,StringBuilder> notesInfo, String notesBackupPath, String notesDir) {
+    private static void backupNotes(Map<String,StringBuilder> notesInfo, String notesBackupPath, String notesDir) {
         System.out.println("==========XXXXXXX=========");
         System.out.println("已备份原笔记！正尝试将原图片路径，改为vx_images/......");
         for (String noteName : notesInfo.keySet()) {
@@ -194,7 +194,7 @@ public class FileOperation_Bak {
         System.out.println("运行结束！请对笔记内容进行随机检查！");
     }
 
-    public static void updateImagePath(Map<String,StringBuilder> notesInfo, String noteName){
+    private static void updateImagePath(Map<String,StringBuilder> notesInfo, String noteName){
         StringBuilder sb = notesInfo.get(noteName);
         if (sb == null) return;
         notesInfo.put(noteName,new StringBuilder(sb.toString().replaceAll(
