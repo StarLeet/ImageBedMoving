@@ -118,7 +118,11 @@ public class FileOperation_Bak {
             imageNames.put(fileName,new ArrayList<>());
         }
         //   *************!第二步修改匹配图片全路径名的正则式*************
-        String regStr = "Z:\\\\MyNotes\\\\(photoes|github图床\\\\cloud_img\\\\\\w*)\\\\\\w*\\.(jpeg|[a-zA-Z]{3})";
+        /*  Java正则中普通的\ 为 \\\\
+            Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3}) 表示匹配 Z:\Mynotes\photoes\xxxx.jpeg或者png或者gif
+            Z:/MyNotes/photoes/\\w*\\.(jpeg|[a-zA-Z]{3}) 表示匹配 Z:/Mynotes/photoes/xxxx.jpeg或者png或者gif
+        */
+        String regStr = "Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3})";
         Pattern compile = Pattern.compile(regStr);
         int imageNum = 0;
         for (String fileName : notesInfo.keySet()) {
@@ -129,22 +133,6 @@ public class FileOperation_Bak {
                 String imageName = split[split.length - 1];
                 imageNames.get(fileName).add(new String[]{imageFullName,imageName});
                 imageNum++;
-            }
-        }
-        // 完全匹配失败,尝试切换路径符
-        if (imageNum == 0){
-            // *************此为上者的补充，兼容到/  *************
-            regStr = "Z:/MyNotes/(photoes|github图床/cloud_img/\\w*)/\\w*\\.(jpeg|[a-zA-Z]{3})";
-            Pattern compile_2 = Pattern.compile(regStr);
-            for (String fileName : notesInfo.keySet()) {
-                Matcher matcher = compile_2.matcher(notesInfo.get(fileName));
-                while (matcher.find()){
-                    String imageFullName = matcher.group(0);
-                    String[] split = imageFullName.split("/");
-                    String imageName = split[split.length - 1];
-                    imageNames.get(fileName).add(new String[]{imageFullName,imageName});
-                    imageNum++;
-                }
             }
         }
         if (imageNum == 0){
@@ -193,7 +181,12 @@ public class FileOperation_Bak {
     public static void updateImagePath(Map<String,StringBuilder> notesInfo, String noteName){
         StringBuilder sb = notesInfo.get(noteName);
         if (sb == null) return;
+        /* 第二处若为 Z:\\\\MyNotes\\\\photoes\\\\\\w*\\.(jpeg|[a-zA-Z]{3})
+           则此处应为 Z:\\\\MyNotes\\\\photoes\\\\
+           第二处若为 Z:/MyNotes/photoes/\\w*\\.(jpeg|[a-zA-Z]{3})
+           则此处应为 Z:/MyNotes/photoes/
+        */
         notesInfo.put(noteName,new StringBuilder(sb.toString().replaceAll(
-                "Z:/MyNotes/(photoes|github图床/cloud_img/\\w*)/", "vx_images/")));
+                "Z:\\\\MyNotes\\\\photoes\\\\", "vx_images/")));
     }
 }
