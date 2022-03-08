@@ -14,6 +14,12 @@
 1. 将本仓库clone到本地
 2. 解压`jre.zip`(Java运行环境)
 
+### 请注意：务必确保你的markdown文件是UTF-8编码的！
+### 请注意：务必确保你的markdown文件是UTF-8编码的！
+### 请注意：务必确保你的markdown文件是UTF-8编码的！
+### ImageMoving默认采用UTF-8读取/写回你的文件，如果你的文件是GBK格式，那将造成十分严重的后果(一片乱码)，且不可逆！
+### 使用typora新建的文件默认为UTF-8,可以放心使用
+
 ## ImageMoving
 
 1. 用记事本编辑`ImageMoving.properties`
