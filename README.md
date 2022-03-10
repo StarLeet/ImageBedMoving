@@ -14,10 +14,9 @@
 1. 将本仓库clone到本地
 2. 解压`jre.zip`(Java运行环境)
 
-### 请注意：务必确保你的markdown文件是UTF-8编码的！
-### 请注意：务必确保你的markdown文件是UTF-8编码的！
-### 请注意：务必确保你的markdown文件是UTF-8编码的！
-### ImageMoving默认采用UTF-8读取/写回你的文件，如果你的文件是GBK格式，那将造成十分严重的后果(一片乱码)，且不可逆！
+### ~~请注意：务必确保你的markdown文件是UTF-8编码的！~~
+### 现在完美支持GBK或者UTF8(no ROM),其他编码的markdown文件不支持！有乱码的可能
+
 ### 使用typora新建的文件默认为UTF-8,可以放心使用
 
 ## ImageMoving
@@ -25,13 +24,25 @@
 1. 用记事本编辑`ImageMoving.properties`
 
 ```
-# 笔记所在目录
+# 笔记所在目录(需要用户自定义)
 NotesDir=E:\\git_exercise\\imageBedMoving\\example
-# 笔记中存储图片的图床路径
+
+# 笔记文件名后缀 md
+NotesType=md
+
+# 笔记中存储图片的图床绝对路径(需要用户自定义)
 ImagesBedPathReg=Z:\\\\MyNotes\\\\github图床\\\\cloud_img\\\\data\\\\
-# 正则匹配图片名字(下式不支持中文命名！)
-# 如匹配失败，才建议自行修改
-ImageNameReg=\\w*-?\\w*\\.(jpeg|[a-zA-Z]{3})
+
+# 匹配图片名的正则式(下式可匹配 英文+数字 命名的图片)
+# 如果有个人需求,可以自行编写; 填写前,请使用RegStringTest测试是否有效
+ImageNameReg=\\w*-?\\w*\\.((?!)jpeg|[a-zA-Z]{3})
+
+# 是否区分大小写(路径+图片名) no|yes
+IgnoreCase=no
+
+# 是否保留原来的图片  no|yes
+# 选no相当于图床迁移,选yes则为图床复制
+KeepOriginImages=no
 ```
 
 2. 双击`ImageMoving_Run.bat`
@@ -62,6 +73,8 @@ ImageNameReg=\\w*-?\\w*\\.(jpeg|[a-zA-Z]{3})
 
 
 ## 运行结果
+
+### 新版不再显示成功信息(大多数情况是成功的,会导致控制台信息杂乱),着重显示失败信息
 ![](vx_images/123.gif)
 
 ## 最后成效
