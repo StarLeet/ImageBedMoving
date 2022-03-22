@@ -6,12 +6,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * @ClassName FileOperation_Bak
+ * @ClassName ImageMoving
  * @Description
  * @Author StarLee
  * @Date 2022/3/6
@@ -21,7 +24,9 @@ public class ImageMoving {
     private static Pattern compile;
     private static ArrayList<File> files;
     private static ArrayList<String> filesName;
-
+    /**
+     *  配置信息类
+     */
     private static class PropertiesInfo {
         static String notesDir;
         static String notesType;
@@ -30,8 +35,6 @@ public class ImageMoving {
         static String oldImagesBedPathReg;
         static String fullNameReg;
         static char pathChar;
-        static boolean AllUTF8;
-        static boolean CaseSensitive;
         static boolean KEEP_ORIGIN;
 
         static void loadProperties() {
@@ -48,37 +51,32 @@ public class ImageMoving {
             notesType = properties.get("NotesType").toString();
             oldImagesBedPathReg = properties.get("ImagesBedPathReg").toString();
             String imageNameReg = properties.get("ImageNameReg").toString();
-            String encodingUTF8 = properties.get("EncodingUTF8").toString();
-            String ignoreCase = properties.get("IgnoreCase").toString();
             String keepOriginImage = properties.get("KeepOriginImages").toString();
-            check(imageNameReg, encodingUTF8, ignoreCase, keepOriginImage);
+            check(imageNameReg,keepOriginImage);
             pathChar = oldImagesBedPathReg.contains("/") ? '/' : '\\';
-            AllUTF8 = encodingUTF8.equalsIgnoreCase("yes");
-            CaseSensitive = ignoreCase.equalsIgnoreCase("yes");
             KEEP_ORIGIN = keepOriginImage.equalsIgnoreCase("yes");
             fullNameReg = oldImagesBedPathReg + imageNameReg;
-            compile = PropertiesInfo.CaseSensitive ? Pattern.compile(PropertiesInfo.fullNameReg)
-                    : Pattern.compile(PropertiesInfo.fullNameReg, Pattern.CASE_INSENSITIVE);
-            imageBedPath = notesDir + "/vx_images/";
-            notesBackupPath = notesDir + "/notes_bak/";
+            compile = Pattern.compile(PropertiesInfo.fullNameReg, Pattern.CASE_INSENSITIVE);
+            imageBedPath = notesDir + "vx_images/";
+            notesBackupPath = notesDir + "notes_bak/";
             System.out.println("=================================================================================");
             System.out.println("读取到配置信息:\n" + "NotesDir = " + notesDir + "\nNotesType= " + notesType
                     + "\nImagesBedPathReg = " + oldImagesBedPathReg + "\nImageNameReg = " + imageNameReg
-                    + "\n笔记是否全为UTF8编码 = " + encodingUTF8 + "\n是否区分大小写？ " + ignoreCase
                     + "\n是否保留原图床内的图片？ " + keepOriginImage);
             System.out.println("=================================================================================");
         }
 
-        static void check(String imageNameReg, String encodingUTF8, String ignoreCase, String keepOriginImage) {
+        static void check(String imageNameReg, String keepOriginImage) {
             checkLength(notesDir);
-            if (notesDir.charAt(notesDir.length() - 1) == '/') {
-                notesDir = notesDir.substring(0, notesDir.length() - 1);
+            if (notesDir.contains("\\")){
+                throw new IllegalArgumentException("配置文件中的notesDir路径符应该为/,而不是\\");
+            }
+            if (notesDir.charAt(notesDir.length() - 1) != '/') {
+                notesDir = notesDir + '/';
             }
             checkLength(notesType);
             checkLength(oldImagesBedPathReg);
             checkLength(imageNameReg);
-            checkValid(encodingUTF8);
-            checkValid(ignoreCase);
             checkValid(keepOriginImage);
         }
 
@@ -114,11 +112,12 @@ public class ImageMoving {
         int pageSize = 1 << 13;
         int pageCount = (files.size() + pageSize - 1) / pageSize; // 分页
         // 防止md文件内容过多(>=1.5GB),导致JVM OOM
-        for (int i = 0; i < pageCount; i++) {
-            int round = i + 1;
-            System.out.println("************************************第" + round + "轮处理************************************");
+        for (int i = 0; i < pageCount;) {
+            if (i != 0) System.gc();
             int begin = i * 1000;
             int end = Math.min(begin + 1000, files.size());
+            int round = ++i;
+            System.out.println("************************************第" + round + "轮处理************************************");
             Map<String, String[]> notesInfo = getFilesData(begin, end);
             Map<String, Map<String, String>> imageNames = collectImageNames(notesInfo);
             if (imageNames != null) {
@@ -137,7 +136,7 @@ public class ImageMoving {
                 Files.createDirectory(pathImageBed);
                 System.out.println("新图床创建成功！");
             } catch (IOException e) {
-                System.out.println("新图床创建失败！");
+                System.out.println("新图床创建失败！ 失败原因：" + e.getMessage());
                 System.exit(-1);
             }
         }
@@ -147,12 +146,14 @@ public class ImageMoving {
                 Files.createDirectory(backupPathNotes);
                 System.out.println("备份目录创建成功！");
             } catch (IOException e) {
-                System.out.println("备份目录创建失败,或许可以用管理员身份运行bat解决~");
+                System.out.println("备份目录创建失败！ 失败原因：" + e.getMessage());
                 System.exit(-1);
             }
         }
     }
-
+    /**
+     *  提取需要处理的笔记文件
+     */
     private static void getFilesInfo() {
         File[] files = new File(PropertiesInfo.notesDir).listFiles();
         assert files != null;
@@ -163,6 +164,7 @@ public class ImageMoving {
             String fileName = file.getName();
             int pointIndex = fileName.length();
             while (pointIndex > 0 && fileName.charAt(--pointIndex) != '.') ;
+            // notesType规定的文件类型才可以加入集合
             if (fileName.substring(pointIndex + 1).equalsIgnoreCase(PropertiesInfo.notesType)) {
                 filter.add(file);
                 filesName.add(fileName);
@@ -183,7 +185,7 @@ public class ImageMoving {
             try {
                 moveResource(files.get(i), newFiles[i]);
             } catch (IOException e) {
-                System.out.println(filesName.get(i) + "备份失败");
+                System.out.println(filesName.get(i) + "备份失败！ 失败原因：" + e.getMessage());
                 exception = true;
             }
         }
@@ -192,27 +194,30 @@ public class ImageMoving {
     }
 
     /**
-     * @MethodName getFilesData
-     * @Description
+     *  @MethodName getFilesData
+     *  @Description  读取笔记内容
+     *  @return Map<笔记名,{笔记内容,编码类型}>
      */
     private static Map<String, String[]> getFilesData(int begin, int end) {
         Map<String, String[]> notesInfo = new HashMap<>();
         for (int i = begin; i < end; i++) {
             //读取指定文件路径下的文件内容
             String[] fileData = readFile(files.get(i));
-            //把文件名作为key,文件内容为value 存储在map中
+            // 内容大小合适,且内容中含有图片路径的加入Map
             if (fileData != null) {
-                notesInfo.put(filesName.get(i), fileData);
+                Matcher matcher = compile.matcher(fileData[0]);
+                if (matcher.find()){
+                    notesInfo.put(filesName.get(i), fileData);
+                }
             }
         }
         return notesInfo;
     }
 
     /**
-     * @return String 将读取到的内容返回
-     * @MethodName readFile
-     * @Description 读取单个文件的内容
-     * @Param [path]
+     *  @MethodName readFile
+     *  @Description  读取单个笔记
+     *  @return {笔记内容,编码类型}
      */
     private static String[] readFile(File path) {
         byte[] content = null;
@@ -230,11 +235,13 @@ public class ImageMoving {
             e.printStackTrace();
             System.exit(-1);
         }
-        if (!PropertiesInfo.AllUTF8 && isGBK(content)) {
+        // UTF-8可以fast-fail,既判断类型,也兼容GBK
+        if (isGBK(content)) {
             try {
                 return new String[]{new String(content, "gbk"), "gbk"};
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
+                System.exit(-1);
             }
         }
         return new String[]{new String(content, StandardCharsets.UTF_8), "utf8"};
@@ -283,46 +290,19 @@ public class ImageMoving {
         return isGbk;
     }
 
-//    private static boolean isUTF8(byte[] buffer){
-//        boolean isUtf8 = true;
-//        int end = buffer.length;
-//        for (int i = 0; i < end; i++) {
-//            byte temp = buffer[i];
-//            if ((temp & 0x80) == 0) {// 0xxxxxxx
-//                continue;   // 只有一个字节
-//            } else if ((temp & 0x40) == 0x40 && (temp & 0x20) == 0) {// 110xxxxx 10xxxxxx
-//                // 有两个字节
-//                if (i + 1 < end && (buffer[++i] & 0x80) == 0x80 && (buffer[i] & 0x40) == 0) {
-//                    continue;
-//                }
-//            } else if ((temp & 0xE0) == 0xE0 && (temp & 0x10) == 0) {// 1110xxxx 10xxxxxx 10xxxxxx
-//                // 有三个字节
-//                if (i + 2 < end && (buffer[++i] & 0x80) == 0x80 && (buffer[i] & 0x40) == 0
-//                        && (buffer[++i] & 0x80) == 0x80 && (buffer[i] & 0x40) == 0) {
-//                    continue;
-//                }
-//            } else if ((temp & 0xF0) == 0xF0 && (temp & 0x08) == 0) {// 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-//                // 有四个字节
-//                if (i + 3 < end && (buffer[++i] & 0x80) == 0x80 && (buffer[i] & 0x40) == 0
-//                        && (buffer[++i] & 0x80) == 0x80 && (buffer[i] & 0x40) == 0
-//                        && (buffer[++i] & 0x80) == 0x80 && (buffer[i] & 0x40) == 0) {
-//                    continue;
-//                }
-//            }
-//            isUtf8 = false;
-//            break;
-//        }
-//        return isUtf8;
-//    }
 
     /**
-     * @return Map<String, ArrayList < String [ ]>>
-     * 将每张图片以[笔记名,图片全路径全名|图片名]形式保存到Map中
-     * @MethodName collectImageNames
-     * @Description 收集当前目录下所有笔记内的图片引用路径
-     * @Param [notesInfo]
+     *  @MethodName collectImageNames
+     *  @Description  收集所有笔记内容中的图片全路径名
+     *  @return Map<笔记名, Map<图片全路径名,图片名>>
      */
     private static Map<String, Map<String, String>> collectImageNames(Map<String, String[]> notesInfo) {
+        if (notesInfo.size() == 0) {
+            System.out.println("本轮未匹配到图片名。 原因: 1. 本轮笔记中不含有图片引用  " +
+                    "2. 配置的(路径信息|图片名正则表达式)不正确");
+            return null;
+        }
+        // 内容中,存在图片全路径名
         Map<String, Map<String, String>> imageNames = new HashMap<>();
         // 初始化Map
         for (String fileName : notesInfo.keySet()) {
@@ -331,59 +311,71 @@ public class ImageMoving {
         int imageNum = 0;
         for (Map.Entry<String, String[]> entry : notesInfo.entrySet()) {
             Matcher matcher = compile.matcher(entry.getValue()[0]);
+            Map<String, String> curNoteImageInfo = imageNames.get(entry.getKey());
             while (matcher.find()) {
                 String imageFullName = matcher.group(0);
                 int begin = imageFullName.length() - 4;
                 while (begin > 0 && (imageFullName.charAt(--begin) != PropertiesInfo.pathChar)) ;
                 String imageName = imageFullName.substring(++begin);
-                imageNames.get(entry.getKey()).put(imageFullName, imageName);
-                imageNum++;
+                curNoteImageInfo.put(imageFullName, imageName);
             }
+            imageNum += curNoteImageInfo.size();
         }
-        if (imageNum == 0) {
-            System.out.println("本轮未匹配到图片名。 原因: 1. 本轮笔记中不含有图片引用  " +
-                    "2. 配置的(路径信息|图片名正则表达式)不正确");
-            return null;
-        } else {
-            System.out.println("本轮已匹配到" + imageNum + "个图片,正在处理中！");
-        }
+        System.out.println("本轮已匹配到" + imageNum + "个图片,正在处理中！");
         return imageNames;
     }
 
+    /**
+     *  @MethodName moveImages
+     *  @Description  迁移图床
+     *  @Param [Map<笔记名, Map<图片全路径名, 图片名>>, round]
+     */
     private static void moveImages(Map<String, Map<String, String>> imageNames, int round) {
         int failNum = 0;
-        int imageNum = 0;
-        for (Map<String, String> value : imageNames.values()) {
-            imageNum += value.size();
-        }
         for (Map.Entry<String, Map<String, String>> entry : imageNames.entrySet()) {
             Map<String, String> imageNameInfo = entry.getValue();
+            // 存放移动失败的图片,以便后续处理
             ArrayList<String> failImages = new ArrayList<>(imageNameInfo.size());
             System.out.println(entry.getKey() + " 中需要处理的图片有：" + imageNameInfo.size() + "张");
+            // 移动操作
             for (Map.Entry<String, String> imageNameEntry : imageNameInfo.entrySet()) {
                 String imageFullName = imageNameEntry.getKey();
                 String imageName = imageNameEntry.getValue();
                 File origin = new File(imageFullName);
                 File target = new File(PropertiesInfo.imageBedPath + imageName);
-                if (!Files.exists(origin.toPath())) {
+                if (!Files.exists(origin.toPath())) {  // 源图片不存在
                     System.out.println(imageFullName + "  |  移动失败！！ |  失败原因：图片不存在！");
                     failImages.add(imageFullName);
-                } else if (Files.exists(target.toPath()) && target.length() != 0) {
+                } else if (Files.exists(target.toPath()) && target.length() != 0) {  // 新图片已存在
                     System.out.println(imageFullName + "  已存在于新图床下,主动放弃迁移~~~");
                 } else {
                     try {
                         moveResource(origin, target);
                     } catch (IOException e) {
-                        System.out.println(imageFullName + "  |  移动失败！！");
+                        System.out.println(imageFullName + "  |  移动失败！！ |  失败原因：" + e.getMessage());
                         failImages.add(imageFullName);
                     }
                 }
             }
+            // 将移动失败的图片从图片集合中移除
             failNum += failImages.size();
             for (String failImage : failImages) {
-                imageNameInfo.keySet().remove(failImage);
+                imageNameInfo.remove(failImage);
             }
             System.out.println("=================================================================================");
+        }
+        boolean beEmpty = true;
+        // 清除失败操作后残余的空Map
+        for (Map.Entry<String, Map<String, String>> entry : imageNames.entrySet()) {
+            if (entry.getValue().isEmpty()){
+                imageNames.remove(entry.getKey());
+                continue;
+            }
+            beEmpty = false;
+        }
+        if (beEmpty){
+            System.out.println("Notice：无移动成功的图片,后续操作再无意义！");
+            System.exit(-1);
         }
         // 判断是移动图片，还是拷贝图片
         if (!PropertiesInfo.KEEP_ORIGIN) {
@@ -399,31 +391,40 @@ public class ImageMoving {
             }
         }
         System.out.println("第" + round + "轮最终处理失败的图片为" + failNum + "张！");
-        if (imageNum == failNum) {
-            System.exit(-1);
-        }
     }
 
+    /**
+     *  @MethodName moveResource
+     *  @Description  移动文件方法(通用)
+     *  @Param [origin, target]
+     */
     private static void moveResource(File origin, File target) throws IOException {
         try (FileChannel inputChannel = (FileChannel) Channels.newChannel(new FileInputStream(origin));
              FileChannel outputChannel = (FileChannel) Channels.newChannel(new FileOutputStream(target))) {
             inputChannel.transferTo(0, inputChannel.size(), outputChannel);
         }
+        // 对移动失败,导致目标创建成空白文件的处理
         if (target.length() == 0) {
             System.out.println(target + "  在移动过程中出现异常,将显示为空白文件。以防意外,保留了原文件请手动移动。。。。");
             throw new IOException();
         }
     }
 
+    /**
+     *  @MethodName updateImagePath
+     *  @Description  将笔记内容中的旧路径——>新路径
+     *  @Param [notesInfo, imageNames]
+     */
     private static void updateImagePath(Map<String, String[]> notesInfo, Map<String, Map<String, String>> imageNames) {
-        ArrayList<String> succeedNotes = new ArrayList<>();
+        ArrayList<String> failNotes = new ArrayList<>();
+        System.gc();
         for (Map.Entry<String, String[]> entry : notesInfo.entrySet()) {
             String noteName = entry.getKey();
-            Map<String, String> hashMap = imageNames.get(noteName);
-            if (hashMap.isEmpty()) continue;
-            String content = replace(entry.getValue()[0], hashMap);
+            String[] noteInfo = entry.getValue();
+            Map<String, String> curNoteImagesInfo = imageNames.get(noteName);
+            String content = replaceAll(noteInfo[0], curNoteImagesInfo);
             byte[] bytes;
-            if (entry.getValue()[1].equals("gbk")) {
+            if (noteInfo[1].equals("gbk")) {
                 try {
                     bytes = content.getBytes("gbk");
                 } catch (UnsupportedEncodingException e) {
@@ -433,30 +434,51 @@ public class ImageMoving {
             } else {
                 bytes = content.getBytes(StandardCharsets.UTF_8);
             }
-            try (FileChannel rwChannel = new RandomAccessFile(PropertiesInfo.notesDir + "\\"
-                    + noteName, "rw").getChannel()) {
-                MappedByteBuffer mappedByteBuffer = rwChannel.map(FileChannel.MapMode.READ_WRITE,
+
+            File file = new File(PropertiesInfo.notesDir + noteName);
+            Path path = file.toPath();
+            try {
+                Files.delete(path);
+                Files.createFile(path);
+            } catch (IOException e) {
+                System.out.println(noteName + " 更新路径时出错,错误信息：" + e.getMessage());
+                continue;
+            }
+            try (FileChannel outputChannel = new RandomAccessFile(file, "rw").getChannel()) {
+                MappedByteBuffer mappedByteBuffer = outputChannel.map(FileChannel.MapMode.READ_WRITE,
                         0, bytes.length);
                 mappedByteBuffer.put(bytes);
-                succeedNotes.add(noteName);
             } catch (IOException e) {
+                failNotes.add(noteName);
                 System.out.println("Notice:  " + noteName + "  更新图片路径失败！请手动更改！ 原因：新路径无法写回文件");
             }
         }
         System.out.println("=================================================================================");
-        System.out.println("运行结束！成功写回(更新)的文件有：");
-        for (String succeedNote : succeedNotes) {
-            System.out.println(succeedNote);
+        System.out.println("运行结束！更新路径失败的文件有：");
+        int count = 0;
+        for (String failNote : failNotes) {
+            System.out.print(failNote + "\t");
+            if (count++ == 2){
+                System.out.println();
+                count = 0;
+            }
         }
     }
 
-    private static String replace(String rawStr, Map<String, String> succeedImages) {
+    /**
+     *  @MethodName replaceAll
+     *  @Description  图片路径替换, JDK正则源码改编
+     *  @Param [rawStr, succeedImages]
+     *  @return 替换后的内容
+     */
+    private static String replaceAll(String rawStr, Map<String, String> ImagesInfo) {
+        // 到此,ImagesInfo一定存在元素,不需再像JDK一样,提前扫描一遍
         StringBuffer sb = new StringBuffer();
         Matcher matcher = compile.matcher(rawStr);
         while (matcher.find()) {
             String s = matcher.group(0);
-            if (succeedImages.containsKey(s)) {
-                matcher.appendReplacement(sb, "vx_images/" + succeedImages.get(s));
+            if (ImagesInfo.containsKey(s)) {
+                matcher.appendReplacement(sb, "vx_images/" + ImagesInfo.get(s));
             }
         }
         matcher.appendTail(sb);

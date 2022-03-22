@@ -18,6 +18,17 @@ import java.util.regex.Pattern;
 
 public class RegStringTest {
     public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        StringBuilder sb = new StringBuilder();
+        String s;
+        print();
+        while (scanner.hasNextLine()){
+            s = scanner.nextLine();
+            if (Objects.equals(s,"exit")) break;
+            sb.append(s).append("\n");
+        }
+        scanner.close();
+        System.out.println("=======================匹配结果============================");
         Properties properties = new Properties();
         try (FileInputStream fileInputStream = new FileInputStream("../RegStringTest.properties");
              BufferedReader bufferedReader = new BufferedReader(
@@ -25,39 +36,23 @@ public class RegStringTest {
             properties.load(bufferedReader);
         } catch (IOException e) {
             e.printStackTrace();
-            System.exit(-1);
         }
         String regStr = properties.get("RegStringTest").toString();
+        System.out.println(regStr);
         Pattern compile = Pattern.compile(regStr);
-        print(regStr);
-        Scanner scanner = new Scanner(System.in);
-        StringBuilder sb = new StringBuilder();
-        String s;
-        while (scanner.hasNextLine()){
-            s = scanner.nextLine();
-            if (Objects.equals(s,"exit")) break;
-            sb.append(s).append("\n");
-        }
-        boolean hasResult = false;
-        System.out.println("=======================匹配结果============================");
         Matcher matcher = compile.matcher(sb);
         while (matcher.find()){
             System.out.println(matcher.group(0));
-            hasResult = true;
-        }
-        if (!hasResult) {
-            System.out.println("您的表达式无效,并未匹配到内容");
         }
     }
 
-    private static void print(String regStr){
-        System.out.println("________________________________________________________________________");
-        System.out.println("|\t当你运行此程序时,表明你正在测试你的正则表达式。。。。\t\t|");
-        System.out.println("|\t将从RegStringTest.properties中读取你的表达式\t\t\t|");
-        System.out.println("|\t从配置文件中读取为 " + regStr);
-        System.out.println("------------------------------------------------------------------------");
-        System.out.println("|\t这是一个教程:\t\t|\n|\t请输入测试用例:\t\t|\n|\tdasdadadsdada\t\t|\n|\texit\t\t\t|");
-        System.out.println("---------------------------------");
-        System.out.println("请输入测试用例【输入exit获取结果】");
+    private static void print(){
+        System.out.println("_____________________________________________________");
+        System.out.println("|\t当你运行此程序时,表明你正在测试你的正则表达式。。。。\t|");
+        System.out.println("|\t将从RegStringTest.properties中读取你的表达式\t\t|");
+        System.out.println("-----------------------------------------------------");
+        System.out.println("|\t这是一个教程:\t\t\t|\n|\t请输入测试用例:\t\t|\n|\tdasdadadsdada\t\t|\n|\texit\t\t\t\t|");
+        System.out.println("-------------------------");
+        System.out.println("请输入测试用例【输入exit退出】");
     }
 }
