@@ -377,9 +377,9 @@ public class ImageMoving {
             System.out.println("Notice：无移动成功的图片,后续操作再无意义！");
             System.exit(-1);
         }
+        System.gc();
         // 判断是移动图片，还是拷贝图片
         if (!PropertiesInfo.KEEP_ORIGIN) {
-            System.gc();
             for (Map<String, String> names : imageNames.values()) {
                 for (String imageFullName : names.keySet()) {
                     try {
@@ -417,7 +417,6 @@ public class ImageMoving {
      */
     private static void updateImagePath(Map<String, String[]> notesInfo, Map<String, Map<String, String>> imageNames) {
         ArrayList<String> failNotes = new ArrayList<>();
-        System.gc();
         for (Map.Entry<String, String[]> entry : notesInfo.entrySet()) {
             String noteName = entry.getKey();
             String[] noteInfo = entry.getValue();
