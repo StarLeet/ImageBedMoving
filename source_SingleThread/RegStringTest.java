@@ -47,11 +47,11 @@ public class RegStringTest {
     }
 
     private static void print(){
-        System.out.println("_____________________________________________________");
+        System.out.println("____________________________________________________________");
         System.out.println("|\t当你运行此程序时,表明你正在测试你的正则表达式。。。。\t|");
         System.out.println("|\t将从RegStringTest.properties中读取你的表达式\t\t|");
-        System.out.println("-----------------------------------------------------");
-        System.out.println("|\t这是一个教程:\t\t\t|\n|\t请输入测试用例:\t\t|\n|\tdasdadadsdada\t\t|\n|\texit\t\t\t\t|");
+        System.out.println("------------------------------------------------------------");
+        System.out.println("|\t这是一个教程:\t\t\t|\n|\t请输入测试用例:\t\t\t|\n|\tdasdadadsdada\t\t\t|\n|\texit\t\t\t\t|");
         System.out.println("-------------------------");
         System.out.println("请输入测试用例【输入exit退出】");
     }
