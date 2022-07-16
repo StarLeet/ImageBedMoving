@@ -1,6 +1,7 @@
 import java.io.*;
 import java.lang.reflect.Method;
 import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
@@ -10,7 +11,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,8 +34,7 @@ public class ImageMoving {
 
         static void loadProperties() {
             Properties properties = new Properties();
-            try (FileInputStream fileInputStream = new FileInputStream(
-                    "../ImageMoving.properties");
+            try (FileInputStream fileInputStream = new FileInputStream("../ImageMoving.properties");
                  BufferedReader bufferedReader = new BufferedReader(
                          new InputStreamReader(fileInputStream, StandardCharsets.UTF_8))) {
                 properties.load(bufferedReader);
@@ -49,7 +48,7 @@ public class ImageMoving {
             String imageNameReg = properties.get("ImageNameReg").toString();
             String keepOriginImage = properties.get("KeepOriginImages").toString();
             check(imageNameReg, keepOriginImage);
-            KEEP_ORIGIN = keepOriginImage.equalsIgnoreCase("yes");
+            KEEP_ORIGIN = "yes".equalsIgnoreCase(keepOriginImage);
             oldImagesBedPathReg = oldImagesBedPathReg.replaceAll("[/\\\\]", ".");
             if (oldImagesBedPathReg.charAt(oldImagesBedPathReg.length() - 1) != '.') {
                 oldImagesBedPathReg = oldImagesBedPathReg + '.';
@@ -83,7 +82,7 @@ public class ImageMoving {
 
         static void checkValid(String s) {
             checkLength(s);
-            if (!s.equalsIgnoreCase("yes") && !s.equalsIgnoreCase("no")) {
+            if (!"yes".equalsIgnoreCase(s) && !"no".equalsIgnoreCase(s)) {
                 try {
                     throw new IllegalArgumentException("配置文件选择项应填 yes 或者 no");
                 } catch (IllegalArgumentException e) {
@@ -101,32 +100,26 @@ public class ImageMoving {
         static final ThreadPoolExecutor cpuThreadPool;  // 匹配图片线程
         static final ThreadPoolExecutor IOThreadPool;  // IO操作线程
         static final ThreadPoolExecutor priorityIOPool;  // 备份 + 写回
-        static final ConcurrentHashMap<Path, ConcurrentHashMap<String,Object>> notExistMap;  // 图片,路径
+        static final ConcurrentHashMap<Path, ConcurrentHashMap<String, Object>> notExistMap;  // 图片,路径
         static final Object obj;
 
         static {
             int coreNum = Runtime.getRuntime().availableProcessors() - 1;
             coreNum = coreNum <= 0 ? 1 : coreNum;
             cpuThreadPool = new ThreadPoolExecutor(coreNum, coreNum,
-                    0L, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+                    0L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(), r -> {
+                Thread t = new Thread(r);
+                t.setPriority(Thread.MAX_PRIORITY);
+                return t;
+            });
             IOThreadPool = new ThreadPoolExecutor(1, 1,
-                    0L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(),new ThreadFactory() {
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread t = new Thread(r);
-                    t.setPriority(Thread.MAX_PRIORITY);
-                    return t;
-                }
-            });
-            priorityIOPool = new ThreadPoolExecutor(2, 2,
-                    0L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(), new ThreadFactory() {
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread t = new Thread(r);
-                    t.setPriority(Thread.MAX_PRIORITY);
-                    return t;
-                }
-            });
+                    10L, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+            priorityIOPool = new ThreadPoolExecutor(3, 3,
+                    0L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(), r -> {
+                        Thread t = new Thread(r);
+                        t.setPriority(8);
+                        return t;
+                    });
             notExistMap = new ConcurrentHashMap<>();
             obj = new Object();
         }
@@ -136,14 +129,12 @@ public class ImageMoving {
      * 日志信息类
      */
     private static class LogUtils {
-        static Path log;
-        static PrintStream printStream;
+        static FileChannel logChannel;
 
         static {
-            log = Paths.get(PropertiesInfo.notesDir, "00log.txt");
+            Path log = Paths.get(PropertiesInfo.notesDir, "00log.txt");
             try {
-                if (Files.notExists(log)) Files.createFile(log);
-                printStream = new PrintStream(new FileOutputStream(log.toFile(), true));
+               logChannel = FileChannel.open(log, StandardOpenOption.APPEND, StandardOpenOption.CREATE);
             } catch (Exception e) {
                 e.printStackTrace();
                 System.exit(-1);
@@ -155,11 +146,33 @@ public class ImageMoving {
          * 线程安全
          */
         static void appendLog(String s) {
-            printStream.println(s);
+            s = s + "\n";
+            try {
+                logChannel.write(ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8)));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
         static void appendLog(Throwable e) {
-            e.printStackTrace(printStream);
+            StringBuilder sb = new StringBuilder();
+            sb.append(e).append('\n');
+            StackTraceElement[] trace = e.getStackTrace();
+            for (StackTraceElement traceElement : trace)
+                sb.append("\tat ").append(traceElement).append('\n');
+            try {
+                logChannel.write(ByteBuffer.wrap(sb.toString().getBytes(StandardCharsets.UTF_8)));
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }
+
+        static void flush(){
+            try {
+                logChannel.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -194,11 +207,14 @@ public class ImageMoving {
         byte[] bytes;
         FileChannel open;
         MappedByteBuffer map;
+        Future<Boolean> backUpFuture;
 
-        public MatchInfo(byte[] bytes, FileChannel open, MappedByteBuffer map) {
+        public MatchInfo(byte[] bytes, FileChannel open,
+                         MappedByteBuffer map, Future<Boolean> backUpFuture) {
             this.bytes = bytes;
             this.open = open;
             this.map = map;
+            this.backUpFuture = backUpFuture;
         }
     }
 
@@ -212,12 +228,13 @@ public class ImageMoving {
             ConcurrentInfo.priorityIOPool.shutdown();
         }
         if (ConcurrentInfo.IOThreadPool.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)) {
-            ConcurrentInfo.notExistMap.forEach((image,bedPaths) -> {
+            ConcurrentInfo.notExistMap.forEach((image, bedPaths) -> {
                 LogUtils.appendLog("[INFO]" + image + " 不存在!以下为本应到达的图床:");
                 bedPaths.keySet().stream().sorted(
                         Comparator.comparingInt(String::length)).forEach(LogUtils::appendLog);
             });
             LogUtils.appendLog("共耗时" + (System.currentTimeMillis() - s) / 1000.0 + "秒");
+            LogUtils.flush();
         }
     }
 
@@ -272,6 +289,7 @@ public class ImageMoving {
             });
         } catch (Exception e) {
             LogUtils.appendLog(e);
+            LogUtils.flush();
             System.exit(-1);
         }
     }
@@ -287,10 +305,11 @@ public class ImageMoving {
                 map.get(bytes);
                 Path newFile = Paths.get(parent, "notes_bak",
                         file.getFileName().toString());
+                Future<Boolean> future = null;
                 if (Files.notExists(newFile)) {
-                    ConcurrentInfo.priorityIOPool.execute(backUpTask(newFile, bytes));
+                    future = ConcurrentInfo.priorityIOPool.submit(backUpTask(newFile, bytes));
                 }
-                return new MatchInfo(bytes, open, map);
+                return new MatchInfo(bytes, open, map, future);
             } catch (Exception e) {
                 LogUtils.appendLog(e);
             }
@@ -298,15 +317,17 @@ public class ImageMoving {
         };
     }
 
-    private static Runnable backUpTask(Path newFile, byte[] bytes) {
+    private static Callable<Boolean> backUpTask(Path newFile, byte[] bytes) {
         return () -> {
             try (FileChannel output = FileChannel.open(newFile, StandardOpenOption.READ,
                     StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
                 MappedByteBuffer map1 = output.map(FileChannel.MapMode.READ_WRITE,
                         0, bytes.length);
                 map1.put(bytes);
+                return true;
             } catch (Exception e) {
                 LogUtils.appendLog(e);
+                return false;
             }
         };
     }
@@ -325,8 +346,8 @@ public class ImageMoving {
             Charset charset = StandardCharsets.UTF_8;
             String decode = new String(matchInfo.bytes, charset);
             Matcher matcher = PropertiesInfo.compile.matcher(decode);
-            StringBuffer sb = new StringBuffer();
-            Path bedPath = Paths.get(parent,"vx_images");
+            StringBuffer sb = new StringBuffer(matchInfo.bytes.length);
+            Path bedPath = Paths.get(parent, "vx_images");
             while (matcher.find()) {
                 String s = matcher.group(0);
                 Path path = Paths.get(s);
@@ -339,17 +360,28 @@ public class ImageMoving {
                 matcher.appendTail(sb);
                 byte[] modifyBytes = sb.toString().getBytes(charset);
                 // 以上,CPU密集
-                ConcurrentInfo.priorityIOPool.execute(() -> {  // 写回源文件
-                    try {
-                        matchInfo.map.position(0);
-                        matchInfo.map.put(modifyBytes);
-                        Tools.clean(matchInfo.map);
-                        matchInfo.open.truncate(modifyBytes.length);
-                        matchInfo.open.close();
-                    } catch (Exception e) {
-                        LogUtils.appendLog(e);
+                try {
+                    Boolean backUpSuccessed = matchInfo.backUpFuture.get();
+                    if (backUpSuccessed == null || backUpSuccessed){
+                        ConcurrentInfo.priorityIOPool.execute(writeBack(matchInfo,modifyBytes));
                     }
-                });
+                } catch (Exception e) {
+                    LogUtils.appendLog(e);
+                }
+            }
+        };
+    }
+
+    private static Runnable writeBack(MatchInfo matchInfo, byte[] modifyBytes){
+        return () -> {
+            try {
+                matchInfo.map.position(0);
+                matchInfo.map.put(modifyBytes);
+                Tools.clean(matchInfo.map);
+                matchInfo.open.truncate(modifyBytes.length);
+                matchInfo.open.close();
+            } catch (Exception e) {
+                LogUtils.appendLog(e);
             }
         };
     }
@@ -361,6 +393,7 @@ public class ImageMoving {
                 Files.createDirectory(backupDir);
             } catch (IOException e) {
                 LogUtils.appendLog(e);
+                LogUtils.flush();
                 System.exit(-1);
             }
         }
@@ -370,8 +403,8 @@ public class ImageMoving {
     private static void moveImage(Path origin, String bedPath) {
         Path target = Paths.get(bedPath, origin.getFileName().toString());
         if (Files.notExists(origin)) {  // 源图片不存在
-            ConcurrentInfo.notExistMap.computeIfAbsent(origin,k -> new ConcurrentHashMap<>());
-            ConcurrentInfo.notExistMap.get(origin).put(bedPath,ConcurrentInfo.obj);
+            ConcurrentInfo.notExistMap.computeIfAbsent(origin, k -> new ConcurrentHashMap<>());
+            ConcurrentInfo.notExistMap.get(origin).put(bedPath, ConcurrentInfo.obj);
             return;
         }
         try {
