@@ -15,31 +15,29 @@ import java.util.regex.Pattern;
 
 /**
  * @ClassName ImageMoving
- * @Description
+ * @Description 单线程
  * @Author StarLee
  * @Date 2022/3/6
  */
 
 public class ImageMoving {
-    private static Pattern compile;
     private static ArrayList<File> files;
     private static ArrayList<String> filesName;
+
     /**
-     *  配置信息类
+     * 配置信息类
      */
     private static class PropertiesInfo {
         static String notesDir;
         static String notesType;
-        static String imageBedPath;  // 笔记同目录建立图床
-        static String notesBackupPath;
-        static String oldImagesBedPathReg;
         static String fullNameReg;
-        static char pathChar;
+        static Pattern compile;
         static boolean KEEP_ORIGIN;
 
         static void loadProperties() {
             Properties properties = new Properties();
-            try (FileInputStream fileInputStream = new FileInputStream("../ImageMoving.properties");
+            try (FileInputStream fileInputStream = new FileInputStream(
+                    "../ImageMoving.properties");
                  BufferedReader bufferedReader = new BufferedReader(
                          new InputStreamReader(fileInputStream, StandardCharsets.UTF_8))) {
                 properties.load(bufferedReader);
@@ -49,18 +47,19 @@ public class ImageMoving {
             }
             notesDir = properties.get("NotesDir").toString();
             notesType = properties.get("NotesType").toString();
-            oldImagesBedPathReg = properties.get("ImagesBedPathReg").toString();
+            String oldImagesBedPathReg = properties.get("ImagesBedPathReg").toString();
             String imageNameReg = properties.get("ImageNameReg").toString();
             String keepOriginImage = properties.get("KeepOriginImages").toString();
-            check(imageNameReg,keepOriginImage);
-            pathChar = oldImagesBedPathReg.contains("/") ? '/' : '\\';
+            check(imageNameReg, keepOriginImage);
             KEEP_ORIGIN = keepOriginImage.equalsIgnoreCase("yes");
+            oldImagesBedPathReg = oldImagesBedPathReg.replaceAll("[/\\\\]", ".");
+            if (oldImagesBedPathReg.charAt(oldImagesBedPathReg.length() - 1) != '.') {
+                oldImagesBedPathReg = oldImagesBedPathReg + '.';
+            }
             fullNameReg = oldImagesBedPathReg + imageNameReg;
-            compile = Pattern.compile(PropertiesInfo.fullNameReg, Pattern.CASE_INSENSITIVE);
-            imageBedPath = notesDir + "vx_images/";
-            notesBackupPath = notesDir + "notes_bak/";
+            compile = Pattern.compile(fullNameReg, Pattern.CASE_INSENSITIVE);
             System.out.println("=================================================================================");
-            System.out.println("读取到配置信息:\n" + "NotesDir = " + notesDir + "\nNotesType= " + notesType
+            System.out.println("配置信息:\n" + "NotesDir = " + notesDir + "\nNotesType= " + notesType
                     + "\nImagesBedPathReg = " + oldImagesBedPathReg + "\nImageNameReg = " + imageNameReg
                     + "\n是否保留原图床内的图片？ " + keepOriginImage);
             System.out.println("=================================================================================");
@@ -68,14 +67,13 @@ public class ImageMoving {
 
         static void check(String imageNameReg, String keepOriginImage) {
             checkLength(notesDir);
-            if (notesDir.contains("\\")){
-                throw new IllegalArgumentException("配置文件中的notesDir路径符应该为/,而不是\\");
+            if (notesDir.contains("\\")) {
+                notesDir = notesDir.replaceAll("\\\\", "/");
             }
             if (notesDir.charAt(notesDir.length() - 1) != '/') {
                 notesDir = notesDir + '/';
             }
             checkLength(notesType);
-            checkLength(oldImagesBedPathReg);
             checkLength(imageNameReg);
             checkValid(keepOriginImage);
         }
@@ -106,13 +104,14 @@ public class ImageMoving {
 
     public static void main(String[] args) {
         PropertiesInfo.loadProperties();
+        long s = System.currentTimeMillis();
         mkDirs();
         getFilesInfo();
         backupNotes();
         int pageSize = 1 << 13;
         int pageCount = (files.size() + pageSize - 1) / pageSize; // 分页
         // 防止md文件内容过多(>=1.5GB),导致JVM OOM
-        for (int i = 0; i < pageCount;) {
+        for (int i = 0; i < pageCount; ) {
             if (i != 0) System.gc();
             int begin = i * 1000;
             int end = Math.min(begin + 1000, files.size());
@@ -126,11 +125,11 @@ public class ImageMoving {
             }
             System.out.println("**********************************第" + round + "轮处理完成***********************************");
         }
-
+        System.out.println("共耗时" + (System.currentTimeMillis() - s) / 1000.0 + "秒");
     }
 
     private static void mkDirs() {
-        Path pathImageBed = Paths.get(PropertiesInfo.imageBedPath);
+        Path pathImageBed = Paths.get(PropertiesInfo.notesDir,"vx_images");
         if (!Files.exists(pathImageBed)) {  // 创建图床目录
             try {
                 Files.createDirectory(pathImageBed);
@@ -140,7 +139,7 @@ public class ImageMoving {
                 System.exit(-1);
             }
         }
-        Path backupPathNotes = Paths.get(PropertiesInfo.notesBackupPath);
+        Path backupPathNotes = Paths.get(PropertiesInfo.notesDir,"notes_bak");
         if (!Files.exists(backupPathNotes)) {  // 创建图床目录
             try {
                 Files.createDirectory(backupPathNotes);
@@ -151,8 +150,9 @@ public class ImageMoving {
             }
         }
     }
+
     /**
-     *  提取需要处理的笔记文件
+     * 提取需要处理的笔记文件
      */
     private static void getFilesInfo() {
         File[] files = new File(PropertiesInfo.notesDir).listFiles();
@@ -176,8 +176,9 @@ public class ImageMoving {
 
     private static void backupNotes() {
         File[] newFiles = new File[files.size()];
+        String backUpPath = PropertiesInfo.notesDir + "notes_bak/";
         for (int i = 0; i < newFiles.length; i++) {
-            newFiles[i] = new File(PropertiesInfo.notesBackupPath + filesName.get(i));
+            newFiles[i] = new File(backUpPath + filesName.get(i));
         }
         boolean exception = false;  //正常运行标记
         for (int i = 0; i < newFiles.length; i++) {
@@ -194,9 +195,9 @@ public class ImageMoving {
     }
 
     /**
-     *  @MethodName getFilesData
-     *  @Description  读取笔记内容
-     *  @return Map<笔记名,{笔记内容,编码类型}>
+     * @return Map<笔记名, { 笔记内容, 编码类型 }>
+     * @MethodName getFilesData
+     * @Description 读取笔记内容
      */
     private static Map<String, String[]> getFilesData(int begin, int end) {
         Map<String, String[]> notesInfo = new HashMap<>();
@@ -205,8 +206,8 @@ public class ImageMoving {
             String[] fileData = readFile(files.get(i));
             // 内容大小合适,且内容中含有图片路径的加入Map
             if (fileData != null) {
-                Matcher matcher = compile.matcher(fileData[0]);
-                if (matcher.find()){
+                Matcher matcher = PropertiesInfo.compile.matcher(fileData[0]);
+                if (matcher.find()) {
                     notesInfo.put(filesName.get(i), fileData);
                 }
             }
@@ -215,9 +216,9 @@ public class ImageMoving {
     }
 
     /**
-     *  @MethodName readFile
-     *  @Description  读取单个笔记
-     *  @return {笔记内容,编码类型}
+     * @return {笔记内容,编码类型}
+     * @MethodName readFile
+     * @Description 读取单个笔记
      */
     private static String[] readFile(File path) {
         byte[] content = null;
@@ -292,9 +293,9 @@ public class ImageMoving {
 
 
     /**
-     *  @MethodName collectImageNames
-     *  @Description  收集所有笔记内容中的图片全路径名
-     *  @return Map<笔记名, Map<图片全路径名,图片名>>
+     * @return Map<笔记名, Map < 图片全路径名, 图片名>>
+     * @MethodName collectImageNames
+     * @Description 收集所有笔记内容中的图片全路径名
      */
     private static Map<String, Map<String, String>> collectImageNames(Map<String, String[]> notesInfo) {
         if (notesInfo.size() == 0) {
@@ -310,12 +311,13 @@ public class ImageMoving {
         }
         int imageNum = 0;
         for (Map.Entry<String, String[]> entry : notesInfo.entrySet()) {
-            Matcher matcher = compile.matcher(entry.getValue()[0]);
+            Matcher matcher = PropertiesInfo.compile.matcher(entry.getValue()[0]);
             Map<String, String> curNoteImageInfo = imageNames.get(entry.getKey());
             while (matcher.find()) {
                 String imageFullName = matcher.group(0);
                 int begin = imageFullName.length() - 4;
-                while (begin > 0 && (imageFullName.charAt(--begin) != PropertiesInfo.pathChar)) ;
+                while (begin > 0 && (imageFullName.charAt(--begin) != '/' &&
+                        imageFullName.charAt(begin) != '\\')) ;
                 String imageName = imageFullName.substring(++begin);
                 curNoteImageInfo.put(imageFullName, imageName);
             }
@@ -326,12 +328,13 @@ public class ImageMoving {
     }
 
     /**
-     *  @MethodName moveImages
-     *  @Description  迁移图床
-     *  @Param [Map<笔记名, Map<图片全路径名, 图片名>>, round]
+     * @MethodName moveImages
+     * @Description 迁移图床
+     * @Param [Map<笔记名, Map < 图片全路径名, 图片名>>, round]
      */
     private static void moveImages(Map<String, Map<String, String>> imageNames, int round) {
         int failNum = 0;
+        String imageBedPath = PropertiesInfo.notesDir + "vx_images/";
         for (Map.Entry<String, Map<String, String>> entry : imageNames.entrySet()) {
             Map<String, String> imageNameInfo = entry.getValue();
             // 存放移动失败的图片,以便后续处理
@@ -342,7 +345,7 @@ public class ImageMoving {
                 String imageFullName = imageNameEntry.getKey();
                 String imageName = imageNameEntry.getValue();
                 File origin = new File(imageFullName);
-                File target = new File(PropertiesInfo.imageBedPath + imageName);
+                File target = new File(imageBedPath + imageName);
                 if (!Files.exists(origin.toPath())) {  // 源图片不存在
                     System.out.println(imageFullName + "  |  移动失败！！ |  失败原因：图片不存在！");
                     failImages.add(imageFullName);
@@ -367,13 +370,13 @@ public class ImageMoving {
         boolean beEmpty = true;
         // 清除失败操作后残余的空Map
         for (Map.Entry<String, Map<String, String>> entry : imageNames.entrySet()) {
-            if (entry.getValue().isEmpty()){
+            if (entry.getValue().isEmpty()) {
                 imageNames.remove(entry.getKey());
                 continue;
             }
             beEmpty = false;
         }
-        if (beEmpty){
+        if (beEmpty) {
             System.out.println("Notice：无移动成功的图片,后续操作再无意义！");
             System.exit(-1);
         }
@@ -394,9 +397,9 @@ public class ImageMoving {
     }
 
     /**
-     *  @MethodName moveResource
-     *  @Description  移动文件方法(通用)
-     *  @Param [origin, target]
+     * @MethodName moveResource
+     * @Description 移动文件方法(通用)
+     * @Param [origin, target]
      */
     private static void moveResource(File origin, File target) throws IOException {
         try (FileChannel inputChannel = (FileChannel) Channels.newChannel(new FileInputStream(origin));
@@ -411,9 +414,9 @@ public class ImageMoving {
     }
 
     /**
-     *  @MethodName updateImagePath
-     *  @Description  将笔记内容中的旧路径——>新路径
-     *  @Param [notesInfo, imageNames]
+     * @MethodName updateImagePath
+     * @Description 将笔记内容中的旧路径——>新路径
+     * @Param [notesInfo, imageNames]
      */
     private static void updateImagePath(Map<String, String[]> notesInfo, Map<String, Map<String, String>> imageNames) {
         ArrayList<String> failNotes = new ArrayList<>();
@@ -457,7 +460,7 @@ public class ImageMoving {
         int count = 0;
         for (String failNote : failNotes) {
             System.out.print(failNote + "\t");
-            if (count++ == 2){
+            if (count++ == 2) {
                 System.out.println();
                 count = 0;
             }
@@ -465,15 +468,15 @@ public class ImageMoving {
     }
 
     /**
-     *  @MethodName replaceAll
-     *  @Description  图片路径替换, JDK正则源码改编
-     *  @Param [rawStr, succeedImages]
-     *  @return 替换后的内容
+     * @return 替换后的内容
+     * @MethodName replaceAll
+     * @Description 图片路径替换, JDK正则源码改编
+     * @Param [rawStr, succeedImages]
      */
     private static String replaceAll(String rawStr, Map<String, String> ImagesInfo) {
         // 到此,ImagesInfo一定存在元素,不需再像JDK一样,提前扫描一遍
         StringBuffer sb = new StringBuffer();
-        Matcher matcher = compile.matcher(rawStr);
+        Matcher matcher = PropertiesInfo.compile.matcher(rawStr);
         while (matcher.find()) {
             String s = matcher.group(0);
             if (ImagesInfo.containsKey(s)) {
