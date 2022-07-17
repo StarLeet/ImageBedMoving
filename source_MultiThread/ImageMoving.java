@@ -361,8 +361,11 @@ public class ImageMoving {
                 byte[] modifyBytes = sb.toString().getBytes(charset);
                 // “‘…œ,CPU√‹ºØ
                 try {
-                    Boolean backUpSuccessed = matchInfo.backUpFuture.get();
-                    if (backUpSuccessed == null || backUpSuccessed){
+                    Boolean backUpSuccessed = true;
+                    if (matchInfo.backUpFuture != null){
+                        backUpSuccessed = matchInfo.backUpFuture.get();
+                    }
+                    if (backUpSuccessed){
                         ConcurrentInfo.priorityIOPool.execute(writeBack(matchInfo,modifyBytes));
                     }
                 } catch (Exception e) {
